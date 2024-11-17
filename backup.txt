@@ -1,0 +1,42 @@
+@kopf.on.create("quarantine.example.com", "v1", "quarantines")
+def quarantine_deployment(spec, body, namespace, **kwargs):
+    """
+    Add the quarantine label to a specified deployment and ensure it is quarantined.
+    """
+    deployment_name = spec.get("deploymentName")
+    namespace = spec.get("namespace", NAMESPACE_DEFAULT)
+
+    api = kubernetes.client.AppsV1Api()
+
+    try:
+        # Fetch the deployment
+        deployment = api.read_namespaced_deployment(name=deployment_name, namespace=namespace)
+        if not deployment.metadata.labels:
+            deployment.metadata.labels = {}
+
+        # Add the quarantine label
+        deployment.metadata.labels[QUARANTINE_LABEL] = QUARANTINE_VALUE
+        api.patch_namespaced_deployment(name=deployment_name, namespace=namespace, body=deployment)
+
+        logging.info(f"Added quarantine label to deployment {deployment_name} in namespace {namespace}.")
+        kopf.event(
+            body,
+            type="Normal",
+            reason="LabelUpdate",
+            message=f"Added quarantine label to deployment {deployment_name}."
+        )
+
+        # Ensure the network policy exists
+        create_quarantine_network_policy(namespace)
+
+        # Label all pods of the deployment
+        label_pods_for_deployment(deployment_name, namespace)
+
+    except ApiException as e:
+        logging.error(f"Failed to quarantine deployment {deployment_name}: {e}")
+        kopf.event(
+            body,
+            type="Warning",
+            reason="QuarantineError",
+            message=f"Failed to quarantine deployment {deployment_name}: {e}"
+        )

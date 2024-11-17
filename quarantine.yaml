@@ -1,0 +1,7 @@
+apiVersion: quarantine.example.com/v1
+kind: Quarantine
+metadata:
+  name: quarantine-nginx2
+spec:
+  deploymentName: "nginx-deployment"
+  namespace: "hacking"

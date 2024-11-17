@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: quarantine-controller-binding
+subjects:
+  - kind: ServiceAccount
+    name: quarantine-controller
+    namespace: default  # Replace with the correct namespace if different
+roleRef:
+  kind: ClusterRole
+  name: quarantine-controller-role
+  apiGroup: rbac.authorization.k8s.io
