@@ -16,12 +16,6 @@ spec:
       containers:
         - name: controller
           image: xxradar/quarantine-controller:latest
-          # Remove 'command' and 'args' unless you need to override them
-          # If you need to pass additional arguments, you can use 'args'
-          # command: ["python"]
-          # args:
-          #   - "quarantine_controller.py"
-          #   - "--cluster-wide"
           env:
             - name: KOPF_LOGLEVEL
               value: DEBUG
