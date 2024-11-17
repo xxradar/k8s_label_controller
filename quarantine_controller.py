@@ -13,36 +13,46 @@ NAMESPACE_DEFAULT = "default"
 
 def create_quarantine_network_policy(namespace):
     """
-    Creates a NetworkPolicy that blocks all traffic for pods labeled with quarantine=true.
+    Create a NetworkPolicy to block all ingress and egress traffic
+    for pods labeled with "quarantine=true".
     """
-    api = kubernetes.client.NetworkingV1Api()
-    network_policy_name = "quarantine-policy"
+    network_policy_manifest = {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {
+            "name": "quarantine-block-all",
+            "namespace": namespace
+        },
+        "spec": {
+            "podSelector": {
+                "matchLabels": {
+                    QUARANTINE_LABEL: QUARANTINE_VALUE
+                }
+            },
+            "policyTypes": ["Ingress", "Egress"]
+        }
+    }
 
-    # Define the NetworkPolicy
-    network_policy = kubernetes.client.V1NetworkPolicy(
-        metadata=kubernetes.client.V1ObjectMeta(
-            name=network_policy_name,
-            namespace=namespace,
-        ),
-        spec=kubernetes.client.V1NetworkPolicySpec(
-            pod_selector=kubernetes.client.V1LabelSelector(
-                match_labels={QUARANTINE_LABEL: QUARANTINE_VALUE}
-            ),
-            ingress=[],
-            egress=[],
-            policy_types=["Ingress", "Egress"],
-        ),
-    )
-
-    # Check if the policy already exists; if not, create it
+    networking_api = kubernetes.client.NetworkingV1Api()
     try:
-        api.create_namespaced_network_policy(namespace=namespace, body=network_policy)
-        logging.info(f"Created quarantine NetworkPolicy {network_policy_name} in namespace {namespace}.")
+        networking_api.create_namespaced_network_policy(
+            body=network_policy_manifest,
+            namespace=namespace
+        )
+        logging.info(f"Created network policy 'quarantine-block-all' in namespace {namespace}.")
     except ApiException as e:
         if e.status == 409:
-            logging.info(f"Quarantine NetworkPolicy {network_policy_name} already exists.")
+            logging.info(f"Network policy 'quarantine-block-all' already exists in namespace {namespace}.")
         else:
-            logging.error(f"Failed to create quarantine NetworkPolicy: {e}")
+            logging.error(f"Failed to create network policy: {e}")
+
+# Ensure network policy is created whenever a quarantine resource is handled
+@kopf.on.create("quarantine.example.com", "v1", "quarantine")
+@kopf.on.update("quarantine.example.com", "v1", "quarantine")
+def ensure_network_policy(spec, **kwargs):
+    namespace = spec.get("namespace", NAMESPACE_DEFAULT)
+    create_quarantine_network_policy(namespace)
+    return
 
 
 
